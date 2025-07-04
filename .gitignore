@@ -1,0 +1,10 @@
+# Ignore any venv directory at any level
+myenv/
+__pycache__/
+*/myenv/
+**/myenv/
+
+# Ignore any .env file or directory at any level
+.env
+*/.env
+**/.env
