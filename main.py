@@ -1,4 +1,6 @@
 from fastapi import FastAPI, Path, HTTPException, Query
+from fastapi.responses import JSONResponse
+from patient_model import Patient, PatientUpdate
 
 app = FastAPI()
 
@@ -6,6 +8,11 @@ def load_data():
     with open("patients.json", "r") as file:
         import json
         return json.load(file)
+    
+def save_data(data):
+    with open("patients.json", "w") as file:
+        import json
+        json.dump(data, file)
 
 @app.get("/")
 def hello_world():
@@ -41,3 +48,72 @@ def get_patient(patient_id: str = Path(..., description="The ID of the patient t
     if not patient_details:
         raise HTTPException(status_code=404, detail="Patient not found")
     return patient_details
+
+
+@app.post("/patients")
+def create_patient(patient: Patient):
+    data = load_data()
+    patient_keys = list(data.keys())[-1] if data else None
+    if patient_keys:
+        next_id = int(patient_keys[1:]) + 1
+    else:
+        next_id = 1
+    patient_id = f"P{next_id:03d}"
+    
+
+    bmi = patient.bmi
+    
+    data[patient_id] = {**patient.model_dump()}
+    
+    save_data(data)
+    
+    return JSONResponse(
+        status_code=201,
+        content={
+            "message": "Patient created successfully",
+            "patient_id": patient_id,
+            "bmi": bmi,
+            "verdict": patient.verdict
+        }
+    )
+@app.put("/patients/{patient_id}")
+def update_patient(patient_id: str, patient: PatientUpdate):
+    data = load_data()
+    
+    if patient_id not in data:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    
+    update_patient = patient.model_dump(exclude_unset=True)
+    existing_patient = data[patient_id]
+    
+    for key, value in update_patient.items():
+        existing_patient[key] = value
+            
+    data[patient_id] = Patient(**existing_patient).model_dump()
+    save_data(data)
+    
+    return JSONResponse(
+        status_code=200,
+        content={
+            "message": "Patient updated successfully",
+            **data[patient_id],
+        }
+    )
+    
+@app.delete("/patients/{patient_id}")
+def delete_patient(patient_id: str):
+    data = load_data()
+    
+    if patient_id not in data:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    
+    del data[patient_id]
+    save_data(data)
+    
+    return JSONResponse(
+        status_code=200,
+        content={
+            "message": "Patient deleted successfully",
+            "patient_id": patient_id
+        }
+    )
